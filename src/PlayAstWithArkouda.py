@@ -14,12 +14,12 @@ def my_filter(v : ak.int64, x : ak.pdarray, y : ak.pdarray) -> ak.pdarray:
 
 @arkouda_func
 def my_filter2(v : ak.int64, x : ak.pdarray, y : ak.pdarray) -> ak.pdarray:
-    (a := v*10)
+    #(a := v*10)
     return ((y+1) if (not (x < a)) else (y-1))
 
 @arkouda_func
 def my_filter3(v : ak.int64, x : ak.pdarray, y : ak.pdarray) -> ak.pdarray:
-    (a := v*10)
+    #(a := v*10)
     return ((y+1) if (not (x < a) and (x >= 0)) else (y-1))
 
 # try it out

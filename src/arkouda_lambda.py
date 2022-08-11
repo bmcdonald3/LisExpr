@@ -3,6 +3,7 @@ import inspect
 import ast
 
 import arkouda as ak
+from arkouda.client import generic_msg
 
 
 class ArkoudaVisitor(ast.NodeVisitor):
@@ -224,6 +225,8 @@ def arkouda_func(func):
         # send it
         # get result
         # return pdarray of result
+        repMsg = generic_msg(cmd="lispCode", args="{} {} {} {}".format(bindings["a"]["value"], bindings['x']['name'], bindings['y']['name'], visitor.ret))
+        print(repMsg)
         
         # return a dummy pdarray
         return ak.zeros(10)
