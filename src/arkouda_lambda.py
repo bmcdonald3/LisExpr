@@ -225,12 +225,18 @@ def arkouda_func(func):
             else:
                 raise Exception("unhandled arg type = " + str(func.__annotations__[name]))
 
-        codeStr = visitor.ret
+        setup = ""
 
         # insert lookup and index into Lisp code
         for val in bindings:
             if bindings[val]["type"] == 'pdarray':
-                codeStr = codeStr.replace(" " + val + " ", " ( lookup_and_index " + bindings[val]["name"] + " i ) ")
+                setup += " ( := " + val + " ( lookup_and_index " + bindings[val]["name"] + " i ) ) "
+            else:
+                setup += " ( := " + val + " " + bindings[val]["value"] + " ) "
+        print(setup)
+        # insert setup string into a new code string
+        codeStr = visitor.ret[:7] + setup + visitor.ret[7:]
+        print(codeStr)
                 
         #size, msg_payload = _json_args_to_str({'bindings' : bindings, 'code' : visitor.ret})
         #msg_payload = repr({'bindings' : repr(bindings), 'code' : repr(visitor.ret)})
