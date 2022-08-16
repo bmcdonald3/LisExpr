@@ -1,9 +1,10 @@
-
+import json
 import inspect
 import ast
 
 import arkouda as ak
 from arkouda.client import generic_msg
+from arkouda.client import _json_args_to_str
 
 
 class ArkoudaVisitor(ast.NodeVisitor):
@@ -207,25 +208,32 @@ def arkouda_func(func):
         #print("annotations :", func.__annotations__.items())
         bindings = {} # make variable/arg linkage/binding dict
         keys = func.__annotations__.keys()
+
+        types = []
+        namesOrVals = []
         for name,arg in zip(keys,args):
             if isinstance(arg, ak.pdarray):
                 #print(name,func.__annotations__[name],(arg.name,"pdarray"))
                 bindings[name] = {"type" : "pdarray", "name" : arg.name}
+                types.append('pdarray')
+                namesOrVals.append(arg.name)
             elif isinstance(arg, ak.numeric_scalars):
                 #print(name,func.__annotations__[name],(arg,str(ak.resolve_scalar_dtype(arg))))
                 bindings[name] = {"type" : str(ak.resolve_scalar_dtype(arg)), "value" : str(arg)}
+                types.append(str(ak.resolve_scalar_dtype(arg)))
+                namesOrVals.append(str(arg))
             else:
                 raise Exception("unhandled arg type = " + str(func.__annotations__[name]))
 
 
-        msg_payload = repr({'bindings' : repr(bindings), 'code' : repr(visitor.ret)})
-        print(msg_payload)
+        #size, msg_payload = _json_args_to_str({'bindings' : bindings, 'code' : visitor.ret})
+        #msg_payload = repr({'bindings' : repr(bindings), 'code' : repr(visitor.ret)})
 
         # construct a message to the arkouda server
         # send it
         # get result
         # return pdarray of result
-        repMsg = generic_msg(cmd="lispCode", args="{} {} {} {}".format(bindings["a"]["value"], bindings['x']['name'], bindings['y']['name'], visitor.ret))
+        repMsg = generic_msg(cmd="lispCode", args=f"{json.dumps(types)} | {json.dumps(namesOrVals)} | {len(types)} | {types.count('pdarray')}  | {visitor.ret}")
         print(repMsg)
         
         # return a dummy pdarray

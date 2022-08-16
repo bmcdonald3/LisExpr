@@ -24,8 +24,8 @@ def my_filter3(v : ak.int64, x : ak.pdarray, y : ak.pdarray) -> ak.pdarray:
 
 # try it out
 ak.connect()
-x = ak.ones(10)
-y = ak.zeros(10)
+x = ak.array([1.0,2,3,4,5,6,7,8,9,10])
+y = ak.array([10.0,10,10,10,10,10,10,10,10,10])
 a = 5.0
 
 #ret = my_axpy(5.0,x,y)
