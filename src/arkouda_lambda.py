@@ -7,6 +7,7 @@ import numpy as np
 import arkouda as ak
 from arkouda.client import generic_msg
 from arkouda.client import _json_args_to_str
+from arkouda.pdarrayclass import create_pdarray
 
 
 class ArkoudaVisitor(ast.NodeVisitor):
@@ -200,7 +201,7 @@ def arkouda_func(func):
         
          # get source code for function
         source_code = inspect.getsource(func)
-        print("source_code :\n" + source_code)
+        # print("source_code :\n" + source_code)
 
          # parse sorce code into a python ast
         tree = ast.parse(source_code)
@@ -209,53 +210,15 @@ def arkouda_func(func):
          # create ast visitor to transform ast into scheme/lisp code
         visitor = ArkoudaVisitor(annotations=func.__annotations__, args=args, echo=False)
         visitor.visit(tree)
-        #print("name :", visitor.name)
-        #print("formal_arg :", visitor.formal_arg)
-        #print("code :", visitor.ret)
-
-        # create bindings/linkage to arkouda server symboltable
-        #print("args :", args)
-        #print("annotations :", func.__annotations__.items())
-        '''
-        bindings = {} # make variable/arg linkage/binding dict
-        keys = func.__annotations__.keys()
-        
-        for name,arg in zip(keys,args):
-            if isinstance(arg, ak.pdarray):
-                #print(name,func.__annotations__[name],(arg.name,"pdarray"))
-                bindings[name] = {"type" : "pdarray", "name" : arg.name}
-            elif isinstance(arg, ak.numeric_scalars):
-                #print(name,func.__annotations__[name],(arg,str(ak.resolve_scalar_dtype(arg))))
-                bindings[name] = {"type" : str(ak.resolve_scalar_dtype(arg)), "value" : str(arg)}
-            else:
-                raise Exception("unhandled arg type = " + str(func.__annotations__[name]))
-
-        setup = ""
-
-        # insert lookup and index into Lisp code
-        for val in bindings:
-            if bindings[val]["type"] == 'pdarray':
-                setup += " ( := " + val + " ( lookup_and_index " + bindings[val]["name"] + " i ) ) "
-            else:
-                setup += " ( := " + val + " " + bindings[val]["value"] + " ) "
-        print(setup)
-        # insert setup string into a new code string
-        codeStr = visitor.ret[:7] + setup + visitor.ret[7:]
-        print(codeStr)
-        '''
-                
-        #size, msg_payload = _json_args_to_str({'bindings' : bindings, 'code' : visitor.ret})
-        #msg_payload = repr({'bindings' : repr(bindings), 'code' : repr(visitor.ret)})
 
         # construct a message to the arkouda server
         # send it
         # get result
         # return pdarray of result
         repMsg = generic_msg(cmd="lispCode", args=f"{visitor.ret}")
-        #print(repMsg)
         
         # return a dummy pdarray
-        return ak.zeros(10)
+        return create_pdarray(repMsg)
         
     return wrapper
 

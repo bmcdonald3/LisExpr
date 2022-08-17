@@ -31,6 +31,10 @@ a = 5.0
 #ret = my_axpy(5.0,x,y)
 
 ret = my_axpy(a,x,y)
+print(ret)
+
+ret2 = my_axpy(8, x, y)
+print(ret2)
 
 #ret = my_filter(5,x,y)
 
