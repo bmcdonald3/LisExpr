@@ -2,6 +2,8 @@ import json
 import inspect
 import ast
 
+import numpy as np
+
 import arkouda as ak
 from arkouda.client import generic_msg
 from arkouda.client import _json_args_to_str
@@ -10,11 +12,13 @@ from arkouda.client import _json_args_to_str
 class ArkoudaVisitor(ast.NodeVisitor):
 
     # initialize return string which will contain scheme/lisp code
-    def __init__(self, echo=False):
+    def __init__(self, annotations=None, args=None, echo=False):
         self.name = ""
         self.ret = ""
         self.formal_arg = {}
         self.echo = echo
+        self.annotations = annotations
+        self.args = args
 
     # allowed nodes without specialized visitors
     ALLOWED = tuple()
@@ -143,15 +147,21 @@ class ArkoudaVisitor(ast.NodeVisitor):
         
     # argument name in argument list
     ALLOWED += (ast.arg,)
-    def visit_arg(self, node):
+    def visit_arg(self, node, i):
         self.formal_arg[node.arg] = node.annotation.attr
+        if isinstance(self.args[i],ak.pdarray):
+            self.ret += " ( := " + node.arg + " ( lookup_and_index " + self.args[i].name + " i ) ) "
+        elif isinstance(self.args[i], ak.numeric_scalars):
+            self.ret += " ( := " + node.arg + " " + str(self.args[i]) + " ) "
+        else:
+            raise Exception("unhandled arg type = " + str(self.args[i].type))
         if self.echo: print(self.ret)
         
     # argument list
     ALLOWED += (ast.arguments,)
     def visit_arguments(self, node):
-        for a in node.args:
-            self.visit_arg(a)
+        for (i, a) in enumerate(node.args):
+            self.visit_arg(a, i)
         if self.echo: print(self.ret)
 
     # Return, `return value`
@@ -166,8 +176,8 @@ class ArkoudaVisitor(ast.NodeVisitor):
     ALLOWED += (ast.FunctionDef,)
     def visit_FunctionDef(self, node):
         self.name = node.name
-        self.visit_arguments(node.args)
         self.ret += "( begin"
+        self.visit_arguments(node.args)
         for b in node.body:
             self.visit(b)
         self.ret += " )"
@@ -197,7 +207,7 @@ def arkouda_func(func):
         #print(ast.dump(tree, indent=4))
 
          # create ast visitor to transform ast into scheme/lisp code
-        visitor = ArkoudaVisitor(echo=False)
+        visitor = ArkoudaVisitor(annotations=func.__annotations__, args=args, echo=False)
         visitor.visit(tree)
         #print("name :", visitor.name)
         #print("formal_arg :", visitor.formal_arg)
@@ -206,22 +216,17 @@ def arkouda_func(func):
         # create bindings/linkage to arkouda server symboltable
         #print("args :", args)
         #print("annotations :", func.__annotations__.items())
+        '''
         bindings = {} # make variable/arg linkage/binding dict
         keys = func.__annotations__.keys()
-
-        types = []
-        namesOrVals = []
+        
         for name,arg in zip(keys,args):
             if isinstance(arg, ak.pdarray):
                 #print(name,func.__annotations__[name],(arg.name,"pdarray"))
                 bindings[name] = {"type" : "pdarray", "name" : arg.name}
-                types.append('pdarray')
-                namesOrVals.append(arg.name)
             elif isinstance(arg, ak.numeric_scalars):
                 #print(name,func.__annotations__[name],(arg,str(ak.resolve_scalar_dtype(arg))))
                 bindings[name] = {"type" : str(ak.resolve_scalar_dtype(arg)), "value" : str(arg)}
-                types.append(str(ak.resolve_scalar_dtype(arg)))
-                namesOrVals.append(str(arg))
             else:
                 raise Exception("unhandled arg type = " + str(func.__annotations__[name]))
 
@@ -237,6 +242,7 @@ def arkouda_func(func):
         # insert setup string into a new code string
         codeStr = visitor.ret[:7] + setup + visitor.ret[7:]
         print(codeStr)
+        '''
                 
         #size, msg_payload = _json_args_to_str({'bindings' : bindings, 'code' : visitor.ret})
         #msg_payload = repr({'bindings' : repr(bindings), 'code' : repr(visitor.ret)})
@@ -245,7 +251,7 @@ def arkouda_func(func):
         # send it
         # get result
         # return pdarray of result
-        repMsg = generic_msg(cmd="lispCode", args=f"{codeStr}")
+        repMsg = generic_msg(cmd="lispCode", args=f"{visitor.ret}")
         #print(repMsg)
         
         # return a dummy pdarray
