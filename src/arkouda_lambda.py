@@ -215,7 +215,7 @@ def arkouda_func(func):
         # send it
         # get result
         # return pdarray of result
-        repMsg = generic_msg(cmd="lispCode", args=f"{visitor.ret}")
+        repMsg = generic_msg(cmd="lispCode", args=f"{visitor.ret} | {args[1].size}")
         
         # return a dummy pdarray
         return create_pdarray(repMsg)

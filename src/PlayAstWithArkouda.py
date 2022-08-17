@@ -30,11 +30,18 @@ a = 5.0
 
 #ret = my_axpy(5.0,x,y)
 
-ret = my_axpy(a,x,y)
-print(ret)
+ret = my_axpy(a,x,y).to_ndarray()
 
-ret2 = my_axpy(8, x, y)
-print(ret2)
+x = ak.randint(0,100,100, ak.float64)
+y = ak.randint(0,100,100, ak.float64)
+
+ret2 = my_axpy(a, x, y).to_ndarray()
+
+regCalc = (a*x+y).to_ndarray()
+for (val1, val2) in zip(ret2, regCalc):
+    if val1 != val2:
+        print("MISSED")
+        print(val1, val2)
 
 #ret = my_filter(5,x,y)
 
