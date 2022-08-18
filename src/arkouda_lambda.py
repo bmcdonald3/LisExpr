@@ -4,10 +4,9 @@ import ast
 
 import numpy as np
 
-import arkouda as ak
 from arkouda.client import generic_msg
-from arkouda.client import _json_args_to_str
-from arkouda.pdarrayclass import create_pdarray
+from arkouda.pdarrayclass import create_pdarray, pdarray
+from arkouda.dtypes import numeric_scalars
 
 
 class ArkoudaVisitor(ast.NodeVisitor):
@@ -150,9 +149,9 @@ class ArkoudaVisitor(ast.NodeVisitor):
     ALLOWED += (ast.arg,)
     def visit_arg(self, node, i):
         self.formal_arg[node.arg] = node.annotation.attr
-        if isinstance(self.args[i],ak.pdarray):
+        if isinstance(self.args[i],pdarray): # need to have same size for all
             self.ret += " ( := " + node.arg + " ( lookup_and_index " + self.args[i].name + " i ) ) "
-        elif isinstance(self.args[i], ak.numeric_scalars):
+        elif isinstance(self.args[i], numeric_scalars):
             self.ret += " ( := " + node.arg + " " + str(self.args[i]) + " ) "
         else:
             raise Exception("unhandled arg type = " + str(self.args[i].type))
@@ -198,6 +197,16 @@ class ArkoudaVisitor(ast.NodeVisitor):
 # which could be sent to the arkouda server to be evaluated there
 def arkouda_func(func):
     def wrapper(*args):
+        num_elems = -1
+        elem_dtypes = []
+        for arg in args:
+            if isinstance(arg, pdarray):
+                if num_elems == -1:
+                    num_elems = arg.size
+                    elem_dtypes.append(arg.dtype)
+                else:
+                    if arg.size != num_elems:
+                        raise Exception("size mismatch exception; all pdarrays must be same size")
         
          # get source code for function
         source_code = inspect.getsource(func)
@@ -215,7 +224,7 @@ def arkouda_func(func):
         # send it
         # get result
         # return pdarray of result
-        repMsg = generic_msg(cmd="lispCode", args=f"{visitor.ret} | {args[1].size}")
+        repMsg = generic_msg(cmd="lispCode", args=f"float64 | {num_elems} | {visitor.ret}")
         
         # return a dummy pdarray
         return create_pdarray(repMsg)
